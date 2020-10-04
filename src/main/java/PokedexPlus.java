@@ -11,31 +11,33 @@ public class PokedexPlus {
 	 * 
 	 * */
 	
-	public static final String[] LABELS = {"HP","Atk","Def","Sp.Atk","Sp.Def", "Speed"};
-	public static final String[] TYPES = {"Normal", "Fighting", "Flying", "Poison", "Ground", 
+	private static final String[] LABELS = {"HP","Atk","Def","Sp.Atk","Sp.Def", "Speed"};
+	private static final String[] TYPES = {"Normal", "Fighting", "Flying", "Poison", "Ground",
 			"Rock", "Bug", "Ghost", "Steel", "Fire", "Water", "Grass", "Electric", "Psychic", 
 			"Ice", "Dragon", "Dark"};
-    public static final int WIDTH = 600;
-    public static final int HEIGHT = 500;
+    private static final int WIDTH = 600;
+    private static final int HEIGHT = 500;
     
-    public static Map<String, double[]> strengths;
-    public static String myPoke;
-    public static String otherPoke;
-    public static Map<String, Color> colors;
-    public static int[] myStats;
-    public static String[] myTypes;
-    public static int[] otherStats;
-    public static String[] otherTypes;
-    public static DrawingPanel p;
-    public static Graphics g;
+    private static Map<String, double[]> strengths;
+    private static String myPoke;
+    private static String otherPoke;
+    private static Map<String, Color> colors;
+    private static ArrayList<Stat> myStats;
+    private static String[] myTypes;
+    private static ArrayList<Stat> otherStats;
+    private static String[] otherTypes;
+    private static DrawingPanel p;
+    private static Graphics g;
+
+    private static PokedexPlusHTTPClient pHTTPClient = new PokedexPlusHTTPClient();
     
 	
-	public static void main (String[] args) throws FileNotFoundException {
+	public static void main (String[] args) throws IOException {
+        //pHTTPClient.getStats();
 		intro();
 		int analyze = 1;
 		Scanner console = new Scanner(System.in);
         while (analyze == 1) {
-        	
         	// input chosen pokemon name and gather necessary data  
             myPoke = getName("Choose your Pokemon! ");
             myStats = getStats(myPoke);
@@ -44,6 +46,7 @@ public class PokedexPlus {
                 myPoke = getName("Choose your Pokemon! ");
                 myStats = getStats(myPoke);
             }
+
             myTypes = getType(myPoke);
             
             // input opponent pokemon name and gather necessary data
@@ -133,21 +136,8 @@ public class PokedexPlus {
 		return name;
 	}
     
-    public static int[] getStats(String name) throws FileNotFoundException {
-        Scanner statScan = new Scanner(new File("res/poke_stats.txt"));
-        while (statScan.hasNextLine()) {
-            String line = statScan.nextLine();
-            Scanner lineScan = new Scanner(line);
-            String lineName = lineScan.next();
-            if (lineName.equalsIgnoreCase(name)) {
-                int[] stats = new int[7];
-                for (int i = 0; i < 7; i++) {
-                    stats[i] = lineScan.nextInt();
-                }
-                return stats;
-            }
-        }
-        return null;
+    public static ArrayList<Stat> getStats(String name) throws IOException {
+	    return pHTTPClient.getStats(name);
     }
     
     public static String[] getType(String name) throws FileNotFoundException {
@@ -204,24 +194,27 @@ public class PokedexPlus {
         Color otherPokeColor = colors.get(otherTypes[1]);
         
         
-        for (int i = 0; i < myStats.length; i++) {
+        for (int i = 0; i < myStats.size(); i++) {
         	int base = HEIGHT - 50;
         	
         	g.setColor(myPokeColor);
-            int myPokeStart = HEIGHT - (50 + 2 * myStats[i]);
+        	int myBasePower = myStats.get(i).getBasePower();
+        	int otherBasePower = otherStats.get(i).getBasePower();
+
+            int myPokeStart = HEIGHT - (50 + 2 * myBasePower);
             g.fillRect(20 + 100 * i, myPokeStart, 20, base - myPokeStart);
-            g.drawString(myStats[i] + "", 20 + 100 * i, myPokeStart );
+            g.drawString(myBasePower + "", 20 + 100 * i, myPokeStart );
             
             g.setColor(otherPokeColor);
-            int otherPokeStart = HEIGHT - (50 + 2 * otherStats[i]);
+            int otherPokeStart = HEIGHT - (50 + 2 * otherBasePower);
             g.fillRect(40 + 100 * i, otherPokeStart, 20, base - otherPokeStart);
-            g.drawString(otherStats[i] + "", 40 + 100 * i, otherPokeStart );
+            g.drawString(otherBasePower + "", 40 + 100 * i, otherPokeStart );
             
             g.setColor(Color.BLACK);
             g.drawRect(20 + 100 * i, myPokeStart, 20, base - myPokeStart);
-            g.drawString(myStats[i] + "", 20 + 100 * i + 1, myPokeStart );
+            g.drawString(myBasePower + "", 20 + 100 * i + 1, myPokeStart );
             g.drawRect(40 + 100 * i, otherPokeStart, 20, base - otherPokeStart);
-            g.drawString(otherStats[i] + "", 40 + 100 * i + 1, otherPokeStart );
+            g.drawString(otherBasePower + "", 40 + 100 * i + 1, otherPokeStart );
         }
     }   
     
@@ -234,20 +227,20 @@ public class PokedexPlus {
         // [HP, ATK, DEF, SA, SD, SP, TOT]
         
         // averages the two attack stats, making "AttackPower"
-        double myAtkPwr = (myStats[1] + myStats[3]) / 2.0;
-        double otherAtkPwr = (otherStats[1] + otherStats[3]) / 2.0;
+        double myAtkPwr = (myStats.get(1).getBasePower() + myStats.get(3).getBasePower()) / 2.0;
+        double otherAtkPwr = (otherStats.get(1).getBasePower() + otherStats.get(3).getBasePower()) / 2.0;
         
         // Gathers the type advantages and disadvantages of both Pokemon
         double myAdvantage = getDamage(myTypes[1], otherTypes[1]);
         double otherAdvantage = getDamage(otherTypes[1], myTypes[1]);
         
         // Calculates the physical attack and special attack power dealt by the users chosen pokemon
-        double myPDamage = ((((22) * myStats[1] * myAtkPwr / otherStats[2]) / 50) + 2)  * r / 100;
-        double mySDamage = ((((22) * myStats[3] * myAtkPwr / otherStats[4]) / 50) + 2) * myAdvantage * r / 100;
+        double myPDamage = ((((22) * myStats.get(1).getBasePower() * myAtkPwr / otherStats.get(2).getBasePower()) / 50) + 2)  * r / 100;
+        double mySDamage = ((((22) * myStats.get(3).getBasePower() * myAtkPwr / otherStats.get(4).getBasePower()) / 50) + 2) * myAdvantage * r / 100;
         
         // Calculates the physical attack and special attack power dealt by the enemy pokemon
-        double otherPDamage = ((((22) * otherStats[1] * otherAtkPwr / myStats[2]) / 50) + 2) * r / 100;
-        double otherSDamage = ((((22) * otherStats[3] * otherAtkPwr / myStats[4]) / 50) + 2) * otherAdvantage * r / 100;
+        double otherPDamage = ((((22) * otherStats.get(1).getBasePower() * otherAtkPwr / myStats.get(2).getBasePower()) / 50) + 2) * r / 100;
+        double otherSDamage = ((((22) * otherStats.get(3).getBasePower() * otherAtkPwr / myStats.get(4).getBasePower()) / 50) + 2) * otherAdvantage * r / 100;
         
         System.out.println("Now...let the Pokemon battle commence!");
     	System.out.println("**Imagine the 8 bit Pokemon battle music now!**");
@@ -264,8 +257,8 @@ public class PokedexPlus {
     	int myWins = 0;
     	int otherWins = 0;
     	
-    	int mySpeed = myStats[5];
-    	int otherSpeed = otherStats[5];
+    	int mySpeed = myStats.get(5).getBasePower();
+    	int otherSpeed = otherStats.get(5).getBasePower();
     	
     	String mine = myTypes[0];
     	String other = otherTypes[0];
